@@ -1,14 +1,42 @@
 package middleware
 
-var whitelists = []string{"10.10.10.1"}
+import (
+	"github.com/gin-gonic/gin"
+	"log"
+	"net/http"
+)
 
-type Authorization struct {
-	Username   string
-	Role       string
-	Permission string
+type AuthenticatedRequest struct {
+	UserID      string
+	Role        string
+	Permissions string
 }
 
-type Client struct {
-	IPAddress string
-	Authorization
+var authenticated *AuthenticatedRequest
+
+func ValidateRequestHeaderMiddleware(c *gin.Context) {
+
+	userPermission := c.Request.Header.Get("X-User-Permission")
+	userRole := c.Request.Header.Get("X-User-Role")
+	userId := c.Request.Header.Get("X-User-Id")
+
+	if userId != "" && userRole != "" && userPermission != "" {
+
+		log.Println("Request Header is Valid")
+
+		authenticated = &AuthenticatedRequest{
+			Permissions: userPermission,
+			UserID:      userId,
+			Role:        userRole,
+		}
+
+		c.Set("authenticatedRequest", authenticated)
+		c.Next()
+
+	} else {
+		log.Println("Request Header is Invalid")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Request Header is Invalid"})
+		c.Abort()
+	}
+
 }

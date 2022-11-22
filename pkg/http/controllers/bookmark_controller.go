@@ -1,10 +1,10 @@
 package controllers
 
 import (
-	"errors"
+	"context"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/mongo"
 	"golek_bookmark_service/pkg/contracts"
+	"golek_bookmark_service/pkg/contracts/status"
 	"golek_bookmark_service/pkg/http/requests"
 	"golek_bookmark_service/pkg/http/responses"
 	"golek_bookmark_service/pkg/models"
@@ -43,7 +43,7 @@ func (h *BookmarkHandler) Fetch(c *gin.Context) {
 	}
 
 	limit, skip := paginate.GetPagination()
-	bookmarks, err := h.BookmarkUsecase.Fetch(c.Request.Context(), excludedField, limit, skip)
+	bookmarks, _, err := h.BookmarkUsecase.Fetch(c.Request.Context(), excludedField, limit, skip)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -60,28 +60,31 @@ func (h *BookmarkHandler) Fetch(c *gin.Context) {
 			StatusCode: http.StatusOK,
 		},
 	})
+	return
 }
 
 func (h BookmarkHandler) FetchById(c *gin.Context) {
-	bookmark, err := h.BookmarkUsecase.FetchById(c.Request.Context(), c.Param("id"), []string{})
+
+	bookmark, opStatus, err := h.BookmarkUsecase.FetchById(c.Request.Context(), c.Param("id"), []string{})
 	if err != nil {
 		//return 404 not found
-		if err.Error() == mongo.ErrNoDocuments.Error() {
-			c.JSON(http.StatusNotFound, gin.H{"error": "document not found"})
+		if status.Is(opStatus, status.BookmarkNotExist) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, bookmark)
+	return
 }
 
 func (h BookmarkHandler) FetchByUserID(c *gin.Context) {
-	bookmark, err := h.BookmarkUsecase.FetchByUserId(c.Request.Context(), c.Param("user_id"), []string{})
+	bookmark, opStatus, err := h.BookmarkUsecase.FetchByUserId(c.Request.Context(), c.Param("user_id"), []string{})
 	if err != nil {
 		//return 404 not found
-		if err.Error() == mongo.ErrNoDocuments.Error() {
-			c.JSON(http.StatusNotFound, gin.H{"error": "document not found"})
+		if status.Is(opStatus, status.BookmarkNotExist) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -92,6 +95,9 @@ func (h BookmarkHandler) FetchByUserID(c *gin.Context) {
 
 func (h BookmarkHandler) Create(c *gin.Context) {
 
+	val, _ := c.Get("authenticatedRequest")
+	authContext := context.WithValue(context.Background(), "authenticatedRequest", val)
+
 	var createRequest requests.CreateBookmarkRequest
 
 	err := c.ShouldBindJSON(&createRequest)
@@ -99,10 +105,14 @@ func (h BookmarkHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	}
 
-	bookmark, err := h.BookmarkUsecase.Create(c.Request.Context(), &createRequest)
+	bookmark, opStatus, err := h.BookmarkUsecase.Create(authContext, &createRequest)
 	if err != nil {
-		if mongo.IsDuplicateKeyError(err) {
+		if status.Is(opStatus, status.BookmarkDuplicationOccurs) {
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
+		if status.Is(opStatus, status.OperationUnauthorized) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -114,6 +124,9 @@ func (h BookmarkHandler) Create(c *gin.Context) {
 
 func (h BookmarkHandler) AddPost(c *gin.Context) {
 
+	val, _ := c.Get("authenticatedRequest")
+	authContext := context.WithValue(context.Background(), "authenticatedRequest", val)
+
 	var addPostReq requests.AddPostBookmarkRequest
 
 	err := c.ShouldBindJSON(&addPostReq)
@@ -123,18 +136,20 @@ func (h BookmarkHandler) AddPost(c *gin.Context) {
 		return
 	}
 
-	_, err = h.BookmarkUsecase.AddPost(c.Request.Context(), &addPostReq, c.Param("user_id"))
-	if err != nil {
+	opStatus, err := h.BookmarkUsecase.AddPost(authContext, &addPostReq, c.Param("user_id"))
+	if err != nil || status.Is(opStatus, status.BookmarkPostFailed) {
 		//return 404 not found
-		if err.Error() == mongo.ErrNoDocuments.Error() {
+		if status.Is(opStatus, status.BookmarkNotExist) {
 			log.Println("BOOKMARK HANDLER: AddPost", err)
 			c.JSON(http.StatusNotFound, gin.H{"error": "document not found"})
 			return
 		}
-		//return error on failed updates
-		if err.Error() == errors.New("document not modified").Error() {
-			log.Println("BOOKMARK HANDLER: AddPost", err)
-			c.JSON(http.StatusConflict, gin.H{"error": "duplication occurs"})
+		if status.Is(opStatus, status.OperationUnauthorized) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			return
+		}
+		if status.Is(opStatus, status.OperationForbidden) {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
 		log.Println("BOOKMARK HANDLER: AddPost", err)
@@ -149,6 +164,9 @@ func (h BookmarkHandler) AddPost(c *gin.Context) {
 
 func (h BookmarkHandler) RevokePost(c *gin.Context) {
 
+	val, _ := c.Get("authenticatedRequest")
+	authContext := context.WithValue(context.Background(), "authenticatedRequest", val)
+
 	var revokePostReq requests.DeleteAttachedPostRequest
 
 	err := c.ShouldBindJSON(&revokePostReq)
@@ -157,15 +175,20 @@ func (h BookmarkHandler) RevokePost(c *gin.Context) {
 		return
 	}
 
-	_, err = h.BookmarkUsecase.RevokePost(c.Request.Context(), &revokePostReq, c.Param("user_id"))
-	if err != nil {
+	opStatus, err := h.BookmarkUsecase.RevokePost(authContext, &revokePostReq, c.Param("user_id"))
+	if err != nil || status.Is(opStatus, status.BookmarkPostFailed) {
 		//return 404 not found
-		if err.Error() == mongo.ErrNoDocuments.Error() {
+		if status.Is(opStatus, status.BookmarkNotExist) {
+			log.Println("BOOKMARK HANDLER: RevokePost", err)
 			c.JSON(http.StatusNotFound, gin.H{"error": "document not found"})
 			return
 		}
-		if err.Error() == errors.New("document not modified").Error() {
-			c.JSON(http.StatusNotFound, gin.H{"error": "post not found"})
+		if status.Is(opStatus, status.OperationUnauthorized) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			return
+		}
+		if status.Is(opStatus, status.OperationForbidden) {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

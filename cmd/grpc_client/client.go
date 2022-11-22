@@ -28,7 +28,11 @@ func (c *GRPCServiceClient) Fetch(ctx context.Context, postIDs []string) ([]mode
 
 	posts := make([]models.Post, 0)
 	for _, c := range courses.List {
-		posts = append(posts, models.Post{ID: models.GenerateObjectIDFromHex(c.Id), Name: c.Name})
+		posts = append(posts, models.Post{
+			ID:       models.GenerateObjectIDFromHex(c.Id),
+			Name:     c.Name,
+			ImageUrl: c.ImageUrl,
+		})
 	}
 
 	return posts, nil

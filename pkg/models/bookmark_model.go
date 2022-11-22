@@ -15,6 +15,7 @@ type Bookmark struct {
 }
 
 type Post struct {
-	ID   primitive.ObjectID `json:"id" bson:"id"`
-	Name string             `json:"name,omitempty" bson:"-"`
+	ID       primitive.ObjectID `json:"id" bson:"id"`
+	Name     string             `json:"name,omitempty" bson:"-"`
+	ImageUrl string             `json:"image_url,omitempty" bson:"-"`
 }

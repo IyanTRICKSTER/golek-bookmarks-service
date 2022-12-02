@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   db:
-    container_name: acourse_tag_bookmark_cart_service_db
+    container_name: golek_bookmark_db
     image: mongo
     environment:
       - MONGO_INITDB_DATABASE=${DB_NAME}
@@ -12,24 +12,24 @@ services:
       - ./pkg/database/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
       - db_vol:/data/db
     ports:
-      - 27018:${DB_PORT}
+      - ${DB_PORT_OUT}:${DB_PORT_IN}
     networks:
       default:
-        ipv4_address: 192.168.144.21
+        ipv4_address: 172.53.1.11
 
   app:
-    container_name: acourse_tag_bookmark_cart_service_app
+    container_name: golek_bookmark_app
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - 8083:${APP_PORT}
+      - 8099:${APP_PORT}
     restart: on-failure
     volumes:
       - app_vol:/app
     networks:
       default:
-        ipv4_address: 192.168.144.20
+        ipv4_address: 172.53.1.12
     depends_on:
       - db
 
@@ -39,6 +39,6 @@ volumes:
 
 networks:
   default:
-      external: true
-      name: acourse_bridge_network
+    external: true
+    name: golek_network_br
 #    driver: bridge

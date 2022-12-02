@@ -1,9 +1,10 @@
 package config
 
 import (
-	"github.com/joho/godotenv"
 	"golek_bookmark_service/pkg/contracts"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -30,7 +31,7 @@ func New(envpath string) contracts.Config {
 	c.Database["USERNAME"] = os.Getenv("DB_USERNAME")
 	c.Database["PASSWORD"] = os.Getenv("DB_PASSWORD")
 	c.Database["HOST"] = os.Getenv("DB_HOST")
-	c.Database["PORT"] = os.Getenv("DB_PORT")
+	c.Database["PORT"] = os.Getenv("DB_PORT_IN")
 	c.Database["NAME"] = os.Getenv("DB_NAME")
 	c.Database["COLLECTION_BOOKMARKS"] = os.Getenv("DB_COLLECTION_BOOKMARKS")
 

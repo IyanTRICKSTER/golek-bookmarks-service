@@ -143,6 +143,10 @@ func (b BookmarkUsecase) AddPost(ctx context.Context, request *requests.AddPostB
 		if opStatus == status.BookmarkNotExist {
 			_, opStatus, err = b.Create(ctx, (*requests.CreateBookmarkRequest)(request))
 			if err != nil {
+				if opStatus == status.OperationUnauthorized {
+					log.Println("BOOKMARK USECASE: AddPost >>", err.Error())
+					return status.OperationUnauthorized, err
+				}
 				log.Println("BOOKMARK USECASE: AddPost >>", err.Error())
 				return status.BookmarkPostFailed, err
 			}

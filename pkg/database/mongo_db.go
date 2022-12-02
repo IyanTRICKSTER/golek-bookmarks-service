@@ -3,10 +3,11 @@ package database
 import (
 	"context"
 	"fmt"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"golek_bookmark_service/pkg/contracts"
 	"log"
+
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Database struct {
@@ -77,8 +78,8 @@ func (db *Database) GetCollection(collection string) *mongo.Collection {
 }
 
 func (db *Database) DSN() string {
-	return fmt.Sprintf("mongodb://%s:%s@%s:%s/%s?", db.DbUsername, db.DBPassword, db.DbHost, db.DbPort, db.DbName)
-	//return fmt.Sprintf("mongodb://%s:%s@%s:%s/%s?authSource=admin", db.DbUsername, db.DBPassword, db.DbHost, db.DbPort, db.DbName)
+	// return fmt.Sprintf("mongodb://%s:%s@%s:%s/%s?", db.DbUsername, db.DBPassword, db.DbHost, db.DbPort, db.DbName)
+	return fmt.Sprintf("mongodb://%s:%s@%s:%s/%s?authSource=admin", db.DbUsername, db.DBPassword, db.DbHost, db.DbPort, db.DbName)
 
 }
 
